@@ -145,20 +145,28 @@ function Dashboard() {
           hint={`Acumulado em ${year}`}
           icon={Wallet}
         />
-        <KpiCard
-          label="Entradas do Período"
-          value={formatBRL(income)}
-          hint="Vindo do resumo do backend"
-          icon={ArrowUpRight}
-          tone="income"
-        />
-        <KpiCard
-          label="Saídas do Período"
-          value={formatBRL(expense)}
-          hint="Vindo do resumo do backend"
-          icon={ArrowDownRight}
-          tone="expense"
-        />
+        {/* ADR-07: linkam pra Lançamentos já filtrado por tipo — o mês não
+            entra na URL, vem de graça pelo mesmo usePeriod() das duas telas. */}
+        <Link to="/lancamentos" search={{ tipo: "entrada" }} className="block">
+          <KpiCard
+            label="Entradas do Período"
+            value={formatBRL(income)}
+            hint="Vindo do resumo do backend"
+            icon={ArrowUpRight}
+            tone="income"
+            className="cursor-pointer transition-colors hover:border-primary/40"
+          />
+        </Link>
+        <Link to="/lancamentos" search={{ tipo: "saida" }} className="block">
+          <KpiCard
+            label="Saídas do Período"
+            value={formatBRL(expense)}
+            hint="Vindo do resumo do backend"
+            icon={ArrowDownRight}
+            tone="expense"
+            className="cursor-pointer transition-colors hover:border-primary/40"
+          />
+        </Link>
         <KpiCard
           label="Taxa de Poupança"
           value={`${savingRate.toFixed(1)}%`}

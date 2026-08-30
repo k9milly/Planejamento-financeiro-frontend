@@ -7,12 +7,16 @@ export function KpiCard({
   hint,
   icon: Icon,
   tone = "neutral",
+  className,
 }: {
   label: string;
   value: string;
   hint?: string;
   icon: LucideIcon;
   tone?: "neutral" | "income" | "expense";
+  /** Passado pelo Dashboard quando o card vira um `Link` (ADR-07) — para o
+   * feedback visual de hover/cursor sem o componente saber de rotas. */
+  className?: string;
 }) {
   const toneCls =
     tone === "income"
@@ -22,7 +26,7 @@ export function KpiCard({
         : "text-primary bg-accent";
 
   return (
-    <div className="panel p-5">
+    <div className={cn("panel p-5", className)}>
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm text-muted-foreground">{label}</p>
         <span className={cn("flex size-9 items-center justify-center rounded-lg", toneCls)}>

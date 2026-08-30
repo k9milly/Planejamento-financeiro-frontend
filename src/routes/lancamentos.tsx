@@ -34,7 +34,31 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const TIPOS: TipoLancamento[] = [
+  "entrada",
+  "saida",
+  "guardado",
+  "retirado",
+  "rendimento",
+  "perda",
+  "transferencia",
+];
+const FORMAS: FormaPagamento[] = ["debito", "pix", "dinheiro", "credito"];
+
+interface LancamentosSearch {
+  tipo?: TipoLancamento;
+}
+
 export const Route = createFileRoute("/lancamentos")({
+  // ADR-07: o Dashboard linka pra cá com `?tipo=entrada`/`?tipo=saida` — só
+  // semeia o filtro que a tela já tinha (`tipoFiltro`), não vira uma segunda
+  // fonte de verdade sincronizada nos dois sentidos.
+  validateSearch: (search: Record<string, unknown>): LancamentosSearch => {
+    const tipo = search["tipo"];
+    return typeof tipo === "string" && (TIPOS as string[]).includes(tipo)
+      ? { tipo: tipo as TipoLancamento }
+      : {};
+  },
   head: () => ({
     meta: [
       { title: "Lançamentos | Planejamento Financeiro" },
@@ -54,17 +78,6 @@ export const Route = createFileRoute("/lancamentos")({
 
 const selectCls =
   "h-9 rounded-lg border border-border bg-surface-2 px-3 text-sm outline-none focus:ring-2 focus:ring-ring";
-
-const TIPOS: TipoLancamento[] = [
-  "entrada",
-  "saida",
-  "guardado",
-  "retirado",
-  "rendimento",
-  "perda",
-  "transferencia",
-];
-const FORMAS: FormaPagamento[] = ["debito", "pix", "dinheiro", "credito"];
 
 type FormState = {
   data: string;
@@ -94,13 +107,14 @@ function emptyForm(contaId: string, categoriaId: string): FormState {
 
 function LancamentosPage() {
   const { month, year } = usePeriod();
+  const { tipo: tipoDaUrl } = Route.useSearch();
 
   const { data: accounts = [], isLoading: carregandoContas } = useContas();
   const { data: categorias = [], isLoading: carregandoCategorias } = useCategorias();
 
   const [query, setQuery] = useState("");
   const [categoriaFiltro, setCategoriaFiltro] = useState("todas");
-  const [tipoFiltro, setTipoFiltro] = useState<"todos" | TipoLancamento>("todos");
+  const [tipoFiltro, setTipoFiltro] = useState<"todos" | TipoLancamento>(tipoDaUrl ?? "todos");
 
   // Categoria/tipo filtram no servidor (menos dado trafegado); busca por
   // texto livre continua no cliente — a API não tem busca por texto.
