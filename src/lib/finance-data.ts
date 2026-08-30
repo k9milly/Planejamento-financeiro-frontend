@@ -127,10 +127,10 @@ export const ROTULO_FORMA_PAGAMENTO: Record<FormaPagamento, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Metas & Orçamentos — o backend não tem endpoint para orçamentos/metas de
-// poupança (ver ADR 0007 do backend), então a tela de Metas continua usando
-// estes dados de exemplo; o gasto realizado por categoria, porém, já vem do
-// resumo real (ver src/routes/metas.tsx).
+// Orçamento por categoria — o backend não tem endpoint para isso (ver ADR
+// 0007 do backend), então a tela de Metas continua usando este dado de
+// exemplo. A meta de poupança (o antigo `goals`) já é real — ver ADR-06 e
+// `components/finance/MetaPoupancaSection.tsx`.
 // ---------------------------------------------------------------------------
 
 export const budgets = [
@@ -140,10 +140,4 @@ export const budgets = [
   { category: "Lazer", limit: 700 },
   { category: "Saúde", limit: 600 },
   { category: "Assinaturas", limit: 200 },
-];
-
-export const goals = [
-  { name: "Reserva de emergência", target: 30000, saved: 18400 },
-  { name: "Viagem Patagônia", target: 12000, saved: 4300 },
-  { name: "Notebook novo", target: 9000, saved: 6750 },
 ];

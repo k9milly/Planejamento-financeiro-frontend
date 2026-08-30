@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { CreditCard, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/finance/AppShell";
+import { MetaPoupancaSection } from "@/components/finance/MetaPoupancaSection";
 import { usePeriod } from "@/components/finance/period-context";
 import {
   useAtualizarCategoria,
@@ -13,7 +14,7 @@ import {
 import { useAtualizarConta, useContas, useCriarConta, useExcluirConta } from "@/hooks/useContas";
 import { useDesfazerFatura, useFatura, usePagarFatura } from "@/hooks/useFatura";
 import { useResumo } from "@/hooks/useResumo";
-import { api } from "@/lib/api-client";
+import { useAtualizarUsuario, useUsuario } from "@/hooks/useUsuario";
 import { formatBRL, type Categoria, type Conta, type TipoConta } from "@/lib/finance-data";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,31 +63,63 @@ function ConfigPage() {
 // ---------------------------------------------------------------------------
 
 /**
- * Reduzida ao que a API sustenta hoje (Fase 7 do PLANO-FRONTEND.md,
- * decisão da especificação, seção 6): `GET /auth/eu` só devolve `id` e
- * `email` — não há endpoint de nome, meta de poupança nem preferências de
- * alerta. Mostrar campos que não persistem em lugar nenhum simularia uma
- * funcionalidade que não existe; o e-mail somente leitura é o que é real.
+ * Nome editável e e-mail somente leitura, vindos de `GET /auth/eu` (ADR-06
+ * — antes disso a tela era reduzida só ao e-mail, porque nome não existia
+ * na API; ver PLANO-FRONTEND.md Fase 7/10). A meta de poupança mora num
+ * card à parte, `MetaPoupancaSection` (compartilhado com `/metas`).
  */
 function PerfilSection() {
-  const [email, setEmail] = useState<string | null>(null);
+  const { data: usuario } = useUsuario();
+  const atualizar = useAtualizarUsuario();
+  const [nome, setNome] = useState("");
+  const [editandoNome, setEditandoNome] = useState(false);
 
   useEffect(() => {
-    api.eu().then((u) => setEmail(u.email));
-  }, []);
+    if (usuario && !editandoNome) setNome(usuario.nome ?? "");
+  }, [usuario, editandoNome]);
+
+  function salvarNome() {
+    atualizar
+      .mutateAsync({ nome: nome.trim() })
+      .then(() => {
+        toast.success("Nome atualizado.");
+        setEditandoNome(false);
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Não foi possível salvar."));
+  }
 
   return (
-    <section className="panel p-5">
-      <h2 className="mb-4 text-base font-semibold">Perfil</h2>
-      <div className="grid gap-2">
-        <Label htmlFor="email">E-mail</Label>
-        <Input id="email" value={email ?? "carregando…"} readOnly disabled />
-      </div>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Nome, meta de poupança e alertas ainda não existem no backend — nada é mostrado aqui que não
-        persista de verdade.
-      </p>
-    </section>
+    <>
+      <section className="panel p-5">
+        <h2 className="mb-4 text-base font-semibold">Perfil</h2>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="nome">Nome</Label>
+            <div className="flex gap-2">
+              <Input
+                id="nome"
+                value={usuario ? nome : "carregando…"}
+                disabled={!usuario}
+                placeholder="Como quer ser chamada"
+                onChange={(e) => {
+                  setEditandoNome(true);
+                  setNome(e.target.value);
+                }}
+                onBlur={() => {
+                  if (usuario && nome !== (usuario.nome ?? "")) salvarNome();
+                  else setEditandoNome(false);
+                }}
+              />
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="email">E-mail</Label>
+            <Input id="email" value={usuario?.email ?? "carregando…"} readOnly disabled />
+          </div>
+        </div>
+      </section>
+      <MetaPoupancaSection />
+    </>
   );
 }
 

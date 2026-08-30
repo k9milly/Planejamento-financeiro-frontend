@@ -12,6 +12,8 @@ export function useFatura(ano: number, cartaoId: string | undefined, mes: number
 function invalidarTudo(qc: ReturnType<typeof useQueryClient>, ano: number, cartaoId: string) {
   qc.invalidateQueries({ queryKey: ["fatura", ano, cartaoId] });
   qc.invalidateQueries({ queryKey: ["resumo", ano] });
+  // Pagar/desfazer muda se esta fatura aparece em GET /alertas (ADR-06).
+  qc.invalidateQueries({ queryKey: ["alertas"] });
 }
 
 export function usePagarFatura(ano: number) {

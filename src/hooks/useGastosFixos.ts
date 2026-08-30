@@ -12,6 +12,8 @@ export function useGastosFixos(ano: number) {
 function invalidarTudo(qc: ReturnType<typeof useQueryClient>, ano: number) {
   qc.invalidateQueries({ queryKey: ["gastos-fixos", ano] });
   qc.invalidateQueries({ queryKey: ["resumo", ano] });
+  // Pagar/desfazer muda se este gasto aparece em GET /alertas (ADR-06).
+  qc.invalidateQueries({ queryKey: ["alertas"] });
 }
 
 export function useCriarGastoFixo(ano: number) {

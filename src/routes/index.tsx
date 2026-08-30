@@ -15,6 +15,7 @@ import {
   ComposedChart,
 } from "recharts";
 import { ArrowDownRight, ArrowUpRight, CreditCard, PiggyBank, Wallet } from "lucide-react";
+import { AlertasVencimento } from "@/components/finance/AlertasVencimento";
 import { AppShell } from "@/components/finance/AppShell";
 import { CalendarioVencimentos } from "@/components/finance/CalendarioVencimentos";
 import { KpiCard } from "@/components/finance/KpiCard";
@@ -359,16 +360,19 @@ function Dashboard() {
           </ul>
         </section>
 
-        <section className="panel p-5">
-          <h2 className="mb-4 text-base font-semibold">Calendário de Vencimentos</h2>
-          {mesCalendario ? (
-            <CalendarioVencimentos year={year} month={mesCalendario} />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Escolha um mês específico no filtro do cabeçalho para ver o calendário.
-            </p>
-          )}
-        </section>
+        <div className="space-y-4">
+          <AlertasVencimento />
+          <section className="panel p-5">
+            <h2 className="mb-4 text-base font-semibold">Calendário de Vencimentos</h2>
+            {mesCalendario ? (
+              <CalendarioVencimentos year={year} month={mesCalendario} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Escolha um mês específico no filtro do cabeçalho para ver o calendário.
+              </p>
+            )}
+          </section>
+        </div>
       </div>
     </AppShell>
   );

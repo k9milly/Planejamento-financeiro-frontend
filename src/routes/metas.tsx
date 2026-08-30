@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Info, Target, Wallet } from "lucide-react";
+import { Info, Wallet } from "lucide-react";
 import { AppShell } from "@/components/finance/AppShell";
+import { MetaPoupancaSection } from "@/components/finance/MetaPoupancaSection";
 import { usePeriod } from "@/components/finance/period-context";
 import { useResumo } from "@/hooks/useResumo";
-import { MONTHS, budgets, formatBRL, goals } from "@/lib/finance-data";
+import { MONTHS, budgets, formatBRL } from "@/lib/finance-data";
 
 export const Route = createFileRoute("/metas")({
   head: () => ({
@@ -23,8 +24,8 @@ export const Route = createFileRoute("/metas")({
   component: MetasPage,
 });
 
-function Bar({ percent, tone }: { percent: number; tone: "income" | "expense" | "primary" }) {
-  const bg = tone === "income" ? "bg-income" : tone === "expense" ? "bg-expense" : "bg-primary";
+function Bar({ percent, tone }: { percent: number; tone: "income" | "expense" }) {
+  const bg = tone === "income" ? "bg-income" : "bg-expense";
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2">
       <div
@@ -62,8 +63,9 @@ function MetasPage() {
       <div className="mb-4 flex items-start gap-2 rounded-lg border border-border bg-surface-2 px-4 py-3 text-xs text-muted-foreground">
         <Info size={14} className="mt-0.5 shrink-0" />
         <p>
-          Os limites de orçamento e as metas de poupança abaixo são dados de exemplo — o
-          acompanhamento de gasto por categoria já usa os lançamentos reais.
+          Os limites de orçamento por categoria abaixo são dados de exemplo — sem endpoint no
+          backend (ADR 0007). O acompanhamento de gasto por categoria e a meta de poupança já são
+          reais.
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -97,31 +99,7 @@ function MetasPage() {
           </ul>
         </section>
 
-        <section className="panel p-5">
-          <header className="mb-5 flex items-center gap-2">
-            <Target size={18} className="text-primary" />
-            <h2 className="text-base font-semibold">Metas de poupança</h2>
-          </header>
-          <ul className="space-y-5">
-            {goals.map((g) => {
-              const pct = (g.saved / g.target) * 100;
-              return (
-                <li key={g.name}>
-                  <div className="mb-2 flex items-center justify-between text-sm">
-                    <span>{g.name}</span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {formatBRL(g.saved)} / {formatBRL(g.target)}
-                    </span>
-                  </div>
-                  <Bar percent={pct} tone="primary" />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {pct.toFixed(0)}% concluído • faltam {formatBRL(g.target - g.saved)}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+        <MetaPoupancaSection />
       </div>
     </AppShell>
   );

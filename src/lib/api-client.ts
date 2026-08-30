@@ -102,6 +102,25 @@ interface TokenOut {
 interface UsuarioOut {
   id: number;
   email: string;
+  // `null` = nunca preencheu; a tela cai no e-mail nesse caso (ADR-06).
+  nome: string | null;
+  alertas_email_ativo: boolean;
+}
+
+export interface Usuario {
+  id: string;
+  email: string;
+  nome: string | null;
+  alertasEmailAtivo: boolean;
+}
+
+function paraUsuario(out: UsuarioOut): Usuario {
+  return {
+    id: String(out.id),
+    email: out.email,
+    nome: out.nome,
+    alertasEmailAtivo: out.alertas_email_ativo,
+  };
 }
 
 // --------------------------------------------------------------------------- //
@@ -431,6 +450,142 @@ export interface TotalWishlist {
 }
 
 // --------------------------------------------------------------------------- //
+// Meta de poupança (ADR-06) — duas formas simultâneas possíveis (mensal e
+// com prazo), progresso sempre calculado no backend, nunca resomado aqui.
+// --------------------------------------------------------------------------- //
+
+export type TipoMetaPoupanca = "mensal" | "prazo";
+
+interface MetaAtivaMensalOut {
+  id: number;
+  valor_alvo: string;
+  guardado_no_mes: string;
+  percentual: number;
+}
+
+interface MetaAtivaPrazoOut {
+  id: number;
+  valor_alvo: string;
+  data_alvo: string;
+  dias_restantes: number;
+  guardado_acumulado: string;
+  percentual: number;
+}
+
+interface MetasAtivasOut {
+  mensal: MetaAtivaMensalOut | null;
+  prazo: MetaAtivaPrazoOut | null;
+}
+
+export interface MetaAtivaMensal {
+  id: string;
+  valorAlvo: number;
+  guardadoNoMes: number;
+  percentual: number;
+}
+
+export interface MetaAtivaPrazo {
+  id: string;
+  valorAlvo: number;
+  dataAlvo: string;
+  diasRestantes: number;
+  guardadoAcumulado: number;
+  percentual: number;
+}
+
+export interface MetasAtivas {
+  mensal: MetaAtivaMensal | null;
+  prazo: MetaAtivaPrazo | null;
+}
+
+function paraMetasAtivas(out: MetasAtivasOut): MetasAtivas {
+  return {
+    mensal: out.mensal
+      ? {
+          id: String(out.mensal.id),
+          valorAlvo: n(out.mensal.valor_alvo),
+          guardadoNoMes: n(out.mensal.guardado_no_mes),
+          percentual: out.mensal.percentual,
+        }
+      : null,
+    prazo: out.prazo
+      ? {
+          id: String(out.prazo.id),
+          valorAlvo: n(out.prazo.valor_alvo),
+          dataAlvo: out.prazo.data_alvo,
+          diasRestantes: out.prazo.dias_restantes,
+          guardadoAcumulado: n(out.prazo.guardado_acumulado),
+          percentual: out.prazo.percentual,
+        }
+      : null,
+  };
+}
+
+// --------------------------------------------------------------------------- //
+// Alertas de vencimento (ADR-06) — consulta computada, sem tabela própria;
+// união discriminada por `tipo`, igual ao contrato do backend.
+// --------------------------------------------------------------------------- //
+
+interface AlertaGastoFixoOut {
+  tipo: "gasto_fixo";
+  gasto_fixo_id: number;
+  nome: string;
+  dia_vencimento: number;
+  dias_restantes: number;
+  valor: string;
+}
+
+interface AlertaFaturaOut {
+  tipo: "fatura";
+  cartao_id: number;
+  nome_cartao: string;
+  dia_vencimento_fatura: number;
+  dias_restantes: number;
+  valor: string;
+}
+
+type AlertaOut = AlertaGastoFixoOut | AlertaFaturaOut;
+
+export type Alerta =
+  | {
+      tipo: "gasto_fixo";
+      gastoFixoId: string;
+      nome: string;
+      diaVencimento: number;
+      diasRestantes: number;
+      valor: number;
+    }
+  | {
+      tipo: "fatura";
+      cartaoId: string;
+      nomeCartao: string;
+      diaVencimentoFatura: number;
+      diasRestantes: number;
+      valor: number;
+    };
+
+function paraAlerta(out: AlertaOut): Alerta {
+  if (out.tipo === "fatura") {
+    return {
+      tipo: "fatura",
+      cartaoId: String(out.cartao_id),
+      nomeCartao: out.nome_cartao,
+      diaVencimentoFatura: out.dia_vencimento_fatura,
+      diasRestantes: out.dias_restantes,
+      valor: n(out.valor),
+    };
+  }
+  return {
+    tipo: "gasto_fixo",
+    gastoFixoId: String(out.gasto_fixo_id),
+    nome: out.nome,
+    diaVencimento: out.dia_vencimento,
+    diasRestantes: out.dias_restantes,
+    valor: n(out.valor),
+  };
+}
+
+// --------------------------------------------------------------------------- //
 // A API
 // --------------------------------------------------------------------------- //
 
@@ -444,7 +599,17 @@ export const api = {
     sessao.guardar(dados.token);
     return dados;
   },
-  eu: () => requisitar<UsuarioOut>("/auth/eu"),
+  eu: () => requisitar<UsuarioOut>("/auth/eu").then(paraUsuario),
+  atualizarEu: (dados: Partial<{ nome: string; alertasEmailAtivo: boolean }>) =>
+    requisitar<UsuarioOut>("/auth/eu", {
+      method: "PATCH",
+      body: JSON.stringify({
+        ...(dados.nome !== undefined ? { nome: dados.nome } : {}),
+        ...(dados.alertasEmailAtivo !== undefined
+          ? { alertas_email_ativo: dados.alertasEmailAtivo }
+          : {}),
+      }),
+    }).then(paraUsuario),
   sair: () => sessao.limpar(),
 
   // Resumo
@@ -641,4 +806,21 @@ export const api = {
     }).then(paraDesejo),
   excluirDesejo: (ano: number, id: string) =>
     requisitar<void>(`/anos/${ano}/wishlist/${id}`, { method: "DELETE" }),
+
+  // Meta de poupança
+  metasAtivas: () => requisitar<MetasAtivasOut>("/metas-poupanca/ativas").then(paraMetasAtivas),
+  criarMetaPoupanca: (dados: { tipo: TipoMetaPoupanca; valorAlvo: number; dataAlvo?: string }) =>
+    requisitar<void>("/metas-poupanca", {
+      method: "POST",
+      body: JSON.stringify({
+        tipo: dados.tipo,
+        valor_alvo: s(dados.valorAlvo),
+        ...(dados.dataAlvo ? { data_alvo: dados.dataAlvo } : {}),
+      }),
+    }),
+  excluirMetaPoupanca: (id: string) =>
+    requisitar<void>(`/metas-poupanca/${id}`, { method: "DELETE" }),
+
+  // Alertas de vencimento
+  alertas: () => requisitar<AlertaOut[]>("/alertas").then((l) => l.map(paraAlerta)),
 };
