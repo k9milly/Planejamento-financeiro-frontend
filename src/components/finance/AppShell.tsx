@@ -7,6 +7,7 @@ import {
   Table2,
   Target,
   Settings,
+  Upload,
   Wallet,
   Menu,
   X,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/lancamentos", label: "Lançamentos", icon: ReceiptText },
+  { to: "/importacao", label: "Importar Extrato", icon: Upload },
   { to: "/gastos-fixos", label: "Gastos Fixos", icon: CalendarClock },
   { to: "/wishlist", label: "Wishlist", icon: Heart },
   { to: "/tabela-dinamica", label: "Tabela Dinâmica", icon: Table2 },

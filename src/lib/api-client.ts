@@ -53,10 +53,14 @@ export class ErroApi extends Error {
 
 async function requisitar<T>(caminho: string, init?: RequestInit): Promise<T> {
   const token = sessao.ler();
+  // Upload de arquivo (importação de extrato, ADR-08): `FormData` precisa
+  // que o navegador defina o `Content-Type` sozinho (com o boundary do
+  // multipart) — forçar "application/json" aqui quebraria o envio.
+  const ehFormData = init?.body instanceof FormData;
   const resposta = await fetch(`${BASE}${caminho}`, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      ...(ehFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
@@ -586,6 +590,98 @@ function paraAlerta(out: AlertaOut): Alerta {
 }
 
 // --------------------------------------------------------------------------- //
+// Importação de extrato — CSV, XLSX e OFX (ADR-08). Prévia não grava nada;
+// confirmar cria os lançamentos aprovados. `tipo_sugerido` é `TipoLancamento`
+// (7 valores) no OpenAPI, mas a prévia só produz entrada/saida na prática —
+// tipado estreito aqui de propósito, mais fiel ao contrato real do que o
+// schema gerado (ver especificacao-tecnica-funcional.md, seção 13).
+// --------------------------------------------------------------------------- //
+
+export type FormatoImportacao = "csv" | "xlsx" | "ofx";
+
+interface TransacaoPreviaOut {
+  fitid: string;
+  data: string;
+  valor: string;
+  descricao: string;
+  tipo_sugerido: "entrada" | "saida";
+  categoria_sugerida_id: number | null;
+  categoria_sugerida_nome: string | null;
+  duplicado: boolean;
+  possivel_repetido: boolean;
+  fora_do_ano: boolean;
+}
+
+interface PreviaImportacaoOut {
+  total_lidas: number;
+  ja_importadas: number;
+  transacoes: TransacaoPreviaOut[];
+}
+
+export interface TransacaoPrevia {
+  fitid: string;
+  data: string;
+  valor: number;
+  descricao: string;
+  tipoSugerido: "entrada" | "saida";
+  categoriaSugeridaId: string | null;
+  categoriaSugeridaNome: string | null;
+  duplicado: boolean;
+  possivelRepetido: boolean;
+  foraDoAno: boolean;
+}
+
+export interface PreviaImportacao {
+  totalLidas: number;
+  jaImportadas: number;
+  transacoes: TransacaoPrevia[];
+}
+
+function paraPreviaImportacao(out: PreviaImportacaoOut): PreviaImportacao {
+  return {
+    totalLidas: out.total_lidas,
+    jaImportadas: out.ja_importadas,
+    transacoes: out.transacoes.map((t) => ({
+      fitid: t.fitid,
+      data: t.data,
+      valor: n(t.valor),
+      descricao: t.descricao,
+      tipoSugerido: t.tipo_sugerido,
+      categoriaSugeridaId: t.categoria_sugerida_id != null ? String(t.categoria_sugerida_id) : null,
+      categoriaSugeridaNome: t.categoria_sugerida_nome,
+      duplicado: t.duplicado,
+      possivelRepetido: t.possivel_repetido,
+      foraDoAno: t.fora_do_ano,
+    })),
+  };
+}
+
+/** Uma linha marcada pra importar, já com os ajustes feitos na tela de conferência. */
+export interface TransacaoParaConfirmar {
+  fitid: string;
+  data: string;
+  valor: number;
+  tipo: "entrada" | "saida";
+  contaId: string;
+  categoriaId?: string;
+  /** Preenchido = grava uma regra de categorização com este padrão ao confirmar. */
+  aprenderPadrao?: string;
+  descricao: string;
+}
+
+interface ResultadoImportacaoOut {
+  importadas: number;
+  ignoradas_duplicadas: number;
+  regras_criadas: number;
+}
+
+export interface ResultadoImportacao {
+  importadas: number;
+  ignoradasDuplicadas: number;
+  regrasCriadas: number;
+}
+
+// --------------------------------------------------------------------------- //
 // A API
 // --------------------------------------------------------------------------- //
 
@@ -823,4 +919,35 @@ export const api = {
 
   // Alertas de vencimento
   alertas: () => requisitar<AlertaOut[]>("/alertas").then((l) => l.map(paraAlerta)),
+
+  // Importação de extrato (ADR-08)
+  previaImportacao: (ano: number, arquivo: File, formato: FormatoImportacao) => {
+    const corpo = new FormData();
+    corpo.append("arquivo", arquivo);
+    corpo.append("formato", formato);
+    return requisitar<PreviaImportacaoOut>(`/anos/${ano}/importacao/previa`, {
+      method: "POST",
+      body: corpo,
+    }).then(paraPreviaImportacao);
+  },
+  confirmarImportacao: (ano: number, transacoes: TransacaoParaConfirmar[]) =>
+    requisitar<ResultadoImportacaoOut>(`/anos/${ano}/importacao/confirmar`, {
+      method: "POST",
+      body: JSON.stringify({
+        transacoes: transacoes.map((t) => ({
+          fitid: t.fitid,
+          data: t.data,
+          valor: s(t.valor),
+          tipo: t.tipo,
+          conta_id: Number(t.contaId),
+          ...(t.categoriaId ? { categoria_id: Number(t.categoriaId) } : {}),
+          ...(t.aprenderPadrao ? { aprender_padrao: t.aprenderPadrao } : {}),
+          descricao: t.descricao,
+        })),
+      }),
+    }).then((out): ResultadoImportacao => ({
+      importadas: out.importadas,
+      ignoradasDuplicadas: out.ignoradas_duplicadas,
+      regrasCriadas: out.regras_criadas,
+    })),
 };

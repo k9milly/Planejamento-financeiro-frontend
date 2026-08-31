@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as GastosFixosRouteImport } from './routes/gastos-fixos'
+import { Route as ImportacaoRouteImport } from './routes/importacao'
 import { Route as LancamentosRouteImport } from './routes/lancamentos'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MetasRouteImport } from './routes/metas'
@@ -32,6 +33,11 @@ const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
 const GastosFixosRoute = GastosFixosRouteImport.update({
   id: '/gastos-fixos',
   path: '/gastos-fixos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImportacaoRoute = ImportacaoRouteImport.update({
+  id: '/importacao',
+  path: '/importacao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LancamentosRoute = LancamentosRouteImport.update({
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/gastos-fixos': typeof GastosFixosRoute
+  '/importacao': typeof ImportacaoRoute
   '/lancamentos': typeof LancamentosRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/gastos-fixos': typeof GastosFixosRoute
+  '/importacao': typeof ImportacaoRoute
   '/lancamentos': typeof LancamentosRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/gastos-fixos': typeof GastosFixosRoute
+  '/importacao': typeof ImportacaoRoute
   '/lancamentos': typeof LancamentosRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracoes'
     | '/gastos-fixos'
+    | '/importacao'
     | '/lancamentos'
     | '/login'
     | '/metas'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracoes'
     | '/gastos-fixos'
+    | '/importacao'
     | '/lancamentos'
     | '/login'
     | '/metas'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/configuracoes'
     | '/gastos-fixos'
+    | '/importacao'
     | '/lancamentos'
     | '/login'
     | '/metas'
@@ -139,6 +151,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   GastosFixosRoute: typeof GastosFixosRoute
+  ImportacaoRoute: typeof ImportacaoRoute
   LancamentosRoute: typeof LancamentosRoute
   LoginRoute: typeof LoginRoute
   MetasRoute: typeof MetasRoute
@@ -168,6 +181,13 @@ declare module '@tanstack/react-router' {
       path: '/gastos-fixos'
       fullPath: '/gastos-fixos'
       preLoaderRoute: typeof GastosFixosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/importacao': {
+      id: '/importacao'
+      path: '/importacao'
+      fullPath: '/importacao'
+      preLoaderRoute: typeof ImportacaoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lancamentos': {
@@ -219,6 +239,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   GastosFixosRoute: GastosFixosRoute,
+  ImportacaoRoute: ImportacaoRoute,
   LancamentosRoute: LancamentosRoute,
   LoginRoute: LoginRoute,
   MetasRoute: MetasRoute,
