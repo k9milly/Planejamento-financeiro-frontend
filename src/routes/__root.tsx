@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -9,7 +9,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { api } from "@/lib/api-client";
@@ -150,31 +150,55 @@ function RootComponent() {
 }
 
 /**
+ * `null` = ainda verificando; `true` = tem token e ele é válido; `false` =
+ * sem token, ou token que o backend rejeitou. Nunca lança — um 401/qualquer
+ * falha de rede aqui significa "sem sessão", não é um erro pra propagar.
+ */
+async function verificarSessao(): Promise<boolean> {
+  if (!sessao.ler()) return false;
+  try {
+    await api.eu();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Checa a sessão antes de deixar qualquer rota de dado renderizar (ADR-02,
  * ADR-03). Sem SSR de propósito — `localStorage` só existe no navegador, e
  * um loader de servidor não teria como ler o token sem um mecanismo de
  * propagação adicional que esta integração decidiu não introduzir. Por
- * isso a checagem mora aqui, num `useEffect` (só roda no cliente), não num
+ * isso a checagem mora aqui, num `useQuery` (só roda no cliente), não num
  * `beforeLoad`/loader de rota.
+ *
+ * É `useQuery`, não `useState` + `useEffect` de propósito: um `useEffect`
+ * com `[]` só roda uma vez, no mount — depois de um login bem-sucedido em
+ * `/login`, nada o refazia, e o `navigate({ to: "/" })` do login era
+ * imediatamente desfeito por este componente, que continuava achando que
+ * não havia sessão (bug real, só um reload "consertava" porque remontava
+ * tudo). Com `useQuery`, `login.tsx` chama `invalidateQueries` e **espera**
+ * a sessão ser reconferida com o token novo antes de navegar — sem essa
+ * corrida.
  */
 function PortaoDeSessao() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  // null = ainda verificando o token guardado.
-  const [autenticado, setAutenticado] = useState<boolean | null>(null);
+
+  const { data: sessaoValida, status } = useQuery({
+    queryKey: ["sessao"],
+    queryFn: verificarSessao,
+    staleTime: Infinity,
+  });
 
   useEffect(() => {
-    sessao.observarExpiracao(() => setAutenticado(false));
+    // Um 401 em qualquer chamada (ver api-client.ts) chama isto — desloga
+    // na hora, sem esperar a próxima verificação de sessão.
+    return sessao.observarExpiracao(() => queryClient.setQueryData(["sessao"], false));
+  }, [queryClient]);
 
-    if (!sessao.ler()) {
-      setAutenticado(false);
-      return;
-    }
-    api
-      .eu()
-      .then(() => setAutenticado(true))
-      .catch(() => setAutenticado(false));
-  }, []);
+  const autenticado = status === "pending" ? null : (sessaoValida ?? false);
 
   useEffect(() => {
     if (autenticado === false && pathname !== "/login") {

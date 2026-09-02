@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { Wallet } from "lucide-react";
@@ -16,6 +17,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [entrando, setEntrando] = useState(false);
@@ -25,8 +27,12 @@ function LoginPage() {
     setEntrando(true);
     try {
       await api.login(email.trim(), senha);
-      // `__root.tsx` observa o token e redireciona sozinho ao perceber a
-      // sessão válida, mas navegar direto evita esperar o próximo tick.
+      // Bug real, achado depois do PWA (ADR-09) tirar o "disfarce" do
+      // refresh manual: sem isto, `__root.tsx` continuava achando que não
+      // havia sessão válida (a checagem dele é cacheada) e desfazia este
+      // navigate na hora, prendendo a tela em /login. Espera a sessão ser
+      // reconferida com o token novo antes de navegar — sem essa corrida.
+      await queryClient.invalidateQueries({ queryKey: ["sessao"] });
       navigate({ to: "/" });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível entrar.");

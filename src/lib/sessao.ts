@@ -25,9 +25,11 @@ export const sessao = {
     ouvintesExpiracao.forEach((f) => f());
   },
 
-  /** A rota de login usa isto para saber quando redirecionar de volta. */
-  observarExpiracao: (ouvinte: Ouvinte) => {
+  /** `__root.tsx` usa isto para saber quando desautenticar e redirecionar. */
+  observarExpiracao: (ouvinte: Ouvinte): (() => void) => {
     ouvintesExpiracao.add(ouvinte);
-    return () => ouvintesExpiracao.delete(ouvinte);
+    return () => {
+      ouvintesExpiracao.delete(ouvinte);
+    };
   },
 };
