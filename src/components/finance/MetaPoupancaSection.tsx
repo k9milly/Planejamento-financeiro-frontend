@@ -46,7 +46,7 @@ function emptyForm(): FormState {
  * entidade, mesmo componente — não duplicar a lógica em dois lugares).
  */
 export function MetaPoupancaSection() {
-  const { data, isLoading } = useMetasAtivas();
+  const { data, isLoading, isError, error, refetch } = useMetasAtivas();
   const criar = useCriarMetaPoupanca();
   const excluir = useExcluirMetaPoupanca();
 
@@ -91,7 +91,7 @@ export function MetaPoupancaSection() {
       .catch((e) => toast.error(e instanceof Error ? e.message : "Não foi possível desativar."));
   }
 
-  const semNenhuma = !isLoading && !data?.mensal && !data?.prazo;
+  const semNenhuma = !isLoading && !isError && !data?.mensal && !data?.prazo;
 
   return (
     <section className="panel p-5">
@@ -160,6 +160,16 @@ export function MetaPoupancaSection() {
         )}
 
         {isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+        {isError && (
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <p className="text-expense">
+              {error instanceof Error ? error.message : "Não foi possível carregar a meta."}
+            </p>
+            <Button variant="ghost" size="sm" onClick={() => refetch()}>
+              Tentar de novo
+            </Button>
+          </div>
+        )}
         {semNenhuma && (
           <p className="text-sm text-muted-foreground">
             Nenhuma meta ativa — crie uma meta mensal ou com prazo.
