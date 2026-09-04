@@ -9,6 +9,14 @@ export function useMetasAtivas() {
   });
 }
 
+/** Lista crua — usada pelo `<select>` de "vincular a uma meta" em Investimentos (ADR-10). */
+export function useMetasPoupancaLista() {
+  return useQuery({
+    queryKey: ["metas-poupanca", "lista"],
+    queryFn: api.listarMetasPoupanca,
+  });
+}
+
 export function useCriarMetaPoupanca() {
   const qc = useQueryClient();
   return useMutation({

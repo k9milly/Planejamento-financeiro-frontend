@@ -4,6 +4,7 @@ import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/finance/AppShell";
 import { usePeriod } from "@/components/finance/period-context";
+import { useCaixinhas } from "@/hooks/useCaixinhas";
 import { useCategorias } from "@/hooks/useCategorias";
 import { useContas } from "@/hooks/useContas";
 import {
@@ -89,6 +90,7 @@ type FormState = {
   formaPagamento: FormaPagamento;
   contaDestinoId: string;
   destino: DestinoRendimento;
+  caixinhaId: string;
 };
 
 function emptyForm(contaId: string, categoriaId: string): FormState {
@@ -102,6 +104,7 @@ function emptyForm(contaId: string, categoriaId: string): FormState {
     formaPagamento: "debito",
     contaDestinoId: "",
     destino: "conta",
+    caixinhaId: "",
   };
 }
 
@@ -139,6 +142,18 @@ function LancamentosPage() {
   const ehSaida = form.tipo === "saida";
   const ehTransferencia = form.tipo === "transferencia";
   const ehRendimentoOuPerda = form.tipo === "rendimento" || form.tipo === "perda";
+  // Onde uma caixinha faz sentido (ADR-10, `mexe_na_reserva` no backend):
+  // guardado/retirado sempre, rendimento/perda só quando o destino é
+  // "guardado" — o resto (entrada, saída, transferência entre contas) não
+  // mexe na reserva, então não tem caixinha.
+  const mexeNaReserva =
+    form.tipo === "guardado" ||
+    form.tipo === "retirado" ||
+    (ehRendimentoOuPerda && form.destino === "guardado");
+
+  const { data: caixinhasDaConta = [], isLoading: carregandoCaixinhas } = useCaixinhas(
+    form.contaId,
+  );
 
   // Cartão só entra quando a saída é no crédito — nas demais combinações a
   // conta tem que ser corrente (mesma regra do domínio real, ver ADR-0002
@@ -162,6 +177,19 @@ function LancamentosPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contasValidas]);
+
+  // Mesma ideia, para a caixinha: se o tipo deixar de mexer na reserva, ou
+  // a conta trocar e a caixinha escolhida não for mais dela, limpa. Espera
+  // a lista de caixinhas carregar antes de decidir — senão, ao abrir o
+  // modal de edição, limparia a caixinha certa só porque a lista ainda
+  // estava vazia (carregando).
+  useEffect(() => {
+    if (carregandoCaixinhas) return;
+    if (!mexeNaReserva || !caixinhasDaConta.some((c) => c.id === form.caixinhaId)) {
+      setForm((f) => (f.caixinhaId ? { ...f, caixinhaId: "" } : f));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mexeNaReserva, caixinhasDaConta, carregandoCaixinhas]);
 
   const rows = useMemo(
     () =>
@@ -207,6 +235,7 @@ function LancamentosPage() {
       formaPagamento: tx.formaPagamento ?? "debito",
       contaDestinoId: tx.contaDestinoId ?? "",
       destino: tx.destino ?? "conta",
+      caixinhaId: tx.caixinhaId ?? "",
     });
     setOpen(true);
   }
@@ -221,6 +250,13 @@ function LancamentosPage() {
       toast.error("Escolha a conta de destino da transferência.");
       return;
     }
+    // ADR-10: numa conta com caixinha, todo guardado/retirado precisa
+    // apontar pra uma — o backend recusaria de qualquer forma, mas avisar
+    // aqui poupa a viagem e mostra exatamente qual campo falta.
+    if (mexeNaReserva && caixinhasDaConta.length > 0 && !form.caixinhaId) {
+      toast.error("Esta conta tem caixinhas — escolha em qual este valor entra ou sai.");
+      return;
+    }
 
     const payload: Omit<Lancamento, "id"> = {
       data: form.data,
@@ -231,6 +267,7 @@ function LancamentosPage() {
       ...(ehSaida ? { categoriaId: form.categoriaId, formaPagamento: form.formaPagamento } : {}),
       ...(ehTransferencia ? { contaDestinoId: form.contaDestinoId } : {}),
       ...(ehRendimentoOuPerda ? { destino: form.destino } : {}),
+      ...(mexeNaReserva && form.caixinhaId ? { caixinhaId: form.caixinhaId } : {}),
     };
 
     const mutacao = editing
@@ -535,6 +572,25 @@ function LancamentosPage() {
                 >
                   <option value="conta">Conta</option>
                   <option value="guardado">Guardado</option>
+                </select>
+              </div>
+            )}
+
+            {mexeNaReserva && caixinhasDaConta.length > 0 && (
+              <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor="caixinha">Caixinha (obrigatória nesta conta)</Label>
+                <select
+                  id="caixinha"
+                  className={selectCls}
+                  value={form.caixinhaId}
+                  onChange={(e) => setForm({ ...form, caixinhaId: e.target.value })}
+                >
+                  <option value="">Selecione</option>
+                  {caixinhasDaConta.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome} ({formatBRL(c.saldo)})
+                    </option>
+                  ))}
                 </select>
               </div>
             )}

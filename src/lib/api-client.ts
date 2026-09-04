@@ -24,6 +24,7 @@
  */
 
 import type {
+  Caixinha,
   Categoria,
   Conta,
   Desejo,
@@ -185,6 +186,10 @@ interface LancamentoOut {
   destino: DestinoRendimento | null;
   categoria_id: number | null;
   forma_pagamento: FormaPagamento | null;
+  // Caixinha da reserva envolvida (ADR-10) — destino em "guardado", origem
+  // em "retirado"/"transferencia_caixinha".
+  caixinha_id: number | null;
+  caixinha_destino_id: number | null;
   descricao: string;
   fitid: string | null;
 }
@@ -201,6 +206,10 @@ function paraLancamento(out: LancamentoOut): Lancamento {
     ...(out.forma_pagamento ? { formaPagamento: out.forma_pagamento } : {}),
     ...(out.conta_destino_id != null ? { contaDestinoId: String(out.conta_destino_id) } : {}),
     ...(out.destino ? { destino: out.destino } : {}),
+    ...(out.caixinha_id != null ? { caixinhaId: String(out.caixinha_id) } : {}),
+    ...(out.caixinha_destino_id != null
+      ? { caixinhaDestinoId: String(out.caixinha_destino_id) }
+      : {}),
   };
 }
 
@@ -215,6 +224,7 @@ function paraLancamentoCriar(l: Omit<Lancamento, "id">) {
     ...(l.destino ? { destino: l.destino } : {}),
     ...(l.categoriaId ? { categoria_id: Number(l.categoriaId) } : {}),
     ...(l.formaPagamento ? { forma_pagamento: l.formaPagamento } : {}),
+    ...(l.caixinhaId ? { caixinha_id: Number(l.caixinhaId) } : {}),
     descricao: l.descricao,
   };
 }
@@ -522,6 +532,62 @@ function paraMetasAtivas(out: MetasAtivasOut): MetasAtivas {
           percentual: out.prazo.percentual,
         }
       : null,
+  };
+}
+
+interface MetaPoupancaOut {
+  id: number;
+  tipo: TipoMetaPoupanca;
+  valor_alvo: string;
+  data_alvo: string | null;
+  criada_em: string;
+  ativa: boolean;
+}
+
+/** Lista crua (não o progresso já casado em "mensal"/"prazo") — usada só
+ * para o `<select>` de "vincular a uma meta" ao criar/editar caixinha. */
+export interface MetaPoupancaResumo {
+  id: string;
+  tipo: TipoMetaPoupanca;
+  valorAlvo: number;
+  dataAlvo: string | null;
+}
+
+function paraMetaPoupancaResumo(out: MetaPoupancaOut): MetaPoupancaResumo {
+  return {
+    id: String(out.id),
+    tipo: out.tipo,
+    valorAlvo: n(out.valor_alvo),
+    dataAlvo: out.data_alvo,
+  };
+}
+
+// --------------------------------------------------------------------------- //
+// Caixinhas (ADR-10) — divisões nomeadas da reserva de uma conta. `saldo`
+// nunca é resomado aqui: é sempre o que `GET .../caixinhas` já manda
+// calculado (o backend deriva de `saldo_inicial` + lançamentos, não guarda
+// coluna). Vinculável a uma `MetaPoupanca`, opcionalmente.
+// --------------------------------------------------------------------------- //
+
+interface CaixinhaOut {
+  id: number;
+  conta_id: number;
+  nome: string;
+  meta_id: number | null;
+  saldo: string;
+  criada_em: string;
+  ativa: boolean;
+}
+
+function paraCaixinha(out: CaixinhaOut): Caixinha {
+  return {
+    id: String(out.id),
+    contaId: String(out.conta_id),
+    nome: out.nome,
+    ...(out.meta_id != null ? { metaId: String(out.meta_id) } : {}),
+    saldo: n(out.saldo),
+    criadaEm: out.criada_em,
+    ativa: out.ativa,
   };
 }
 
@@ -905,6 +971,8 @@ export const api = {
 
   // Meta de poupança
   metasAtivas: () => requisitar<MetasAtivasOut>("/metas-poupanca/ativas").then(paraMetasAtivas),
+  listarMetasPoupanca: () =>
+    requisitar<MetaPoupancaOut[]>("/metas-poupanca").then((l) => l.map(paraMetaPoupancaResumo)),
   criarMetaPoupanca: (dados: { tipo: TipoMetaPoupanca; valorAlvo: number; dataAlvo?: string }) =>
     requisitar<void>("/metas-poupanca", {
       method: "POST",
@@ -950,4 +1018,50 @@ export const api = {
       ignoradasDuplicadas: out.ignoradas_duplicadas,
       regrasCriadas: out.regras_criadas,
     })),
+
+  // Caixinhas (ADR-10)
+  listarCaixinhas: (contaId: string, incluirInativas = false) =>
+    requisitar<CaixinhaOut[]>(
+      `/contas/${contaId}/caixinhas${incluirInativas ? "?incluir_inativas=true" : ""}`,
+    ).then((l) => l.map(paraCaixinha)),
+  criarCaixinha: (
+    contaId: string,
+    dados: { nome: string; metaId?: string; saldoInicial?: number },
+  ) =>
+    requisitar<CaixinhaOut>(`/contas/${contaId}/caixinhas`, {
+      method: "POST",
+      body: JSON.stringify({
+        nome: dados.nome,
+        ...(dados.metaId ? { meta_id: Number(dados.metaId) } : {}),
+        ...(dados.saldoInicial ? { saldo_inicial: s(dados.saldoInicial) } : {}),
+      }),
+    }).then(paraCaixinha),
+  atualizarCaixinha: (
+    contaId: string,
+    caixinhaId: string,
+    dados: Partial<{ nome: string; metaId: string | null }>,
+  ) =>
+    requisitar<CaixinhaOut>(`/contas/${contaId}/caixinhas/${caixinhaId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        ...(dados.nome !== undefined ? { nome: dados.nome } : {}),
+        ...(dados.metaId !== undefined
+          ? { meta_id: dados.metaId ? Number(dados.metaId) : null }
+          : {}),
+      }),
+    }).then(paraCaixinha),
+  excluirCaixinha: (contaId: string, caixinhaId: string) =>
+    requisitar<void>(`/contas/${contaId}/caixinhas/${caixinhaId}`, { method: "DELETE" }),
+  transferirCaixinha: (
+    contaId: string,
+    dados: { caixinhaOrigemId: string; caixinhaDestinoId: string; valor: number },
+  ) =>
+    requisitar<CaixinhaOut>(`/contas/${contaId}/caixinhas/transferir`, {
+      method: "POST",
+      body: JSON.stringify({
+        caixinha_origem_id: Number(dados.caixinhaOrigemId),
+        caixinha_destino_id: Number(dados.caixinhaDestinoId),
+        valor: s(dados.valor),
+      }),
+    }).then(paraCaixinha),
 };

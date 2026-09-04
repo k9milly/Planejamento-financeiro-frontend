@@ -9,7 +9,17 @@
  */
 
 export type TipoLancamento =
-  "entrada" | "saida" | "guardado" | "retirado" | "rendimento" | "perda" | "transferencia";
+  | "entrada"
+  | "saida"
+  | "guardado"
+  | "retirado"
+  | "rendimento"
+  | "perda"
+  | "transferencia"
+  // Move dinheiro entre duas caixinhas da mesma conta (ADR-10). Nunca criado
+  // pelo modal de lançamento — só por `useTransferirCaixinha` — mas aparece
+  // na lista de lançamentos como qualquer outro, por isso entra no tipo.
+  | "transferencia_caixinha";
 
 export type FormaPagamento = "credito" | "debito" | "pix" | "dinheiro";
 
@@ -60,6 +70,27 @@ export interface Lancamento {
   contaDestinoId?: string;
   /** Só quando tipo === "rendimento" ou "perda". */
   destino?: DestinoRendimento;
+  /**
+   * Caixinha da reserva envolvida (ADR-10) — destino em "guardado", origem
+   * em "retirado", ou em "rendimento"/"perda" com destino "guardado".
+   * Obrigatória quando a conta já tem alguma caixinha ativa (o backend
+   * recusa "guardado"/"retirado" solto nesse caso).
+   */
+  caixinhaId?: string;
+  /** Só quando tipo === "transferencia_caixinha" — a caixinha de destino. */
+  caixinhaDestinoId?: string;
+}
+
+export interface Caixinha {
+  id: string;
+  contaId: string;
+  nome: string;
+  /** Aponta pra uma MetaPoupanca ativa (ADR-06) — opcional. */
+  metaId?: string;
+  /** Sempre calculado pelo backend — nunca resomar lançamentos aqui. */
+  saldo: number;
+  criadaEm: string;
+  ativa: boolean;
 }
 
 export interface GastoFixo {
@@ -117,6 +148,7 @@ export const ROTULO_TIPO_LANCAMENTO: Record<TipoLancamento, string> = {
   rendimento: "Rendimento",
   perda: "Perda",
   transferencia: "Transferência",
+  transferencia_caixinha: "Transferência entre caixinhas",
 };
 
 export const ROTULO_FORMA_PAGAMENTO: Record<FormaPagamento, string> = {
