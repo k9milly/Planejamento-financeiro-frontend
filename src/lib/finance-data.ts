@@ -138,6 +138,23 @@ export const formatDate = (iso: string) => {
   return `${d}/${m}/${y}`;
 };
 
+/**
+ * Data de hoje em `YYYY-MM-DD`, no fuso **local** do navegador — não usar
+ * `new Date().toISOString()` para isso: `toISOString()` sempre converte pra
+ * UTC, então pra quem está a oeste de Greenwich (Brasil incluso) o resultado
+ * já é "amanhã" nas últimas horas do dia local (ex.: 21h–meia-noite no
+ * horário de Brasília, UTC-3). Um lançamento lançado à noite acabava sendo
+ * gravado com a data errada, o que descasa com o "hoje" que o backend usa
+ * (`date.today()`, fuso do servidor) para calcular totais do mês corrente.
+ */
+export const hojeLocal = (): string => {
+  const d = new Date();
+  const ano = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+};
+
 export const YEAR = 2026;
 
 export const ROTULO_TIPO_LANCAMENTO: Record<TipoLancamento, string> = {

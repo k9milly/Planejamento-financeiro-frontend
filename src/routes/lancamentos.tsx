@@ -16,6 +16,7 @@ import {
 import {
   formatBRL,
   formatDate,
+  hojeLocal,
   MONTHS,
   ROTULO_FORMA_PAGAMENTO,
   ROTULO_TIPO_LANCAMENTO,
@@ -95,7 +96,7 @@ type FormState = {
 
 function emptyForm(contaId: string, categoriaId: string): FormState {
   return {
-    data: new Date().toISOString().slice(0, 10),
+    data: hojeLocal(),
     descricao: "",
     valor: "",
     tipo: "saida",
