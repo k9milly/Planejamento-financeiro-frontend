@@ -110,6 +110,8 @@ interface UsuarioOut {
   // `null` = nunca preencheu; a tela cai no e-mail nesse caso (ADR-06).
   nome: string | null;
   alertas_email_ativo: boolean;
+  // Se a tela mostra "Orçamentos por categoria" (ADR-11) — nasce `true`.
+  mostrar_orcamento_categoria: boolean;
 }
 
 export interface Usuario {
@@ -117,6 +119,7 @@ export interface Usuario {
   email: string;
   nome: string | null;
   alertasEmailAtivo: boolean;
+  mostrarOrcamentoCategoria: boolean;
 }
 
 function paraUsuario(out: UsuarioOut): Usuario {
@@ -125,6 +128,7 @@ function paraUsuario(out: UsuarioOut): Usuario {
     email: out.email,
     nome: out.nome,
     alertasEmailAtivo: out.alertas_email_ativo,
+    mostrarOrcamentoCategoria: out.mostrar_orcamento_categoria,
   };
 }
 
@@ -137,10 +141,20 @@ interface CategoriaOut {
   nome: string;
   cor: string;
   ativa: boolean;
+  // Quanto se pretende gastar por mês nesta categoria (ADR-11) — `null` =
+  // categoria sem orçamento, o normal. Sempre recorrente (mesmo valor todo
+  // mês nesta versão).
+  limite_mensal: string | null;
 }
 
 function paraCategoria(out: CategoriaOut): Categoria {
-  return { id: String(out.id), nome: out.nome, cor: out.cor, ativa: out.ativa };
+  return {
+    id: String(out.id),
+    nome: out.nome,
+    cor: out.cor,
+    ativa: out.ativa,
+    ...(out.limite_mensal != null ? { limiteMensal: n(out.limite_mensal) } : {}),
+  };
 }
 
 // --------------------------------------------------------------------------- //
@@ -762,13 +776,22 @@ export const api = {
     return dados;
   },
   eu: () => requisitar<UsuarioOut>("/auth/eu").then(paraUsuario),
-  atualizarEu: (dados: Partial<{ nome: string; alertasEmailAtivo: boolean }>) =>
+  atualizarEu: (
+    dados: Partial<{
+      nome: string;
+      alertasEmailAtivo: boolean;
+      mostrarOrcamentoCategoria: boolean;
+    }>,
+  ) =>
     requisitar<UsuarioOut>("/auth/eu", {
       method: "PATCH",
       body: JSON.stringify({
         ...(dados.nome !== undefined ? { nome: dados.nome } : {}),
         ...(dados.alertasEmailAtivo !== undefined
           ? { alertas_email_ativo: dados.alertasEmailAtivo }
+          : {}),
+        ...(dados.mostrarOrcamentoCategoria !== undefined
+          ? { mostrar_orcamento_categoria: dados.mostrarOrcamentoCategoria }
           : {}),
       }),
     }).then(paraUsuario),
@@ -780,15 +803,31 @@ export const api = {
   // Categorias
   listarCategorias: () =>
     requisitar<CategoriaOut[]>("/categorias").then((l) => l.map(paraCategoria)),
-  criarCategoria: (nome: string, cor?: string) =>
+  criarCategoria: (dados: { nome: string; cor?: string; limiteMensal?: number }) =>
     requisitar<CategoriaOut>("/categorias", {
       method: "POST",
-      body: JSON.stringify({ nome, ...(cor ? { cor } : {}) }),
+      body: JSON.stringify({
+        nome: dados.nome,
+        ...(dados.cor ? { cor: dados.cor } : {}),
+        ...(dados.limiteMensal ? { limite_mensal: s(dados.limiteMensal) } : {}),
+      }),
     }).then(paraCategoria),
-  atualizarCategoria: (id: string, dados: Partial<{ nome: string; cor: string; ativa: boolean }>) =>
+  atualizarCategoria: (
+    id: string,
+    dados: Partial<{ nome: string; cor: string; ativa: boolean; limiteMensal: number | null }>,
+  ) =>
     requisitar<CategoriaOut>(`/categorias/${id}`, {
       method: "PATCH",
-      body: JSON.stringify(dados),
+      body: JSON.stringify({
+        ...(dados.nome !== undefined ? { nome: dados.nome } : {}),
+        ...(dados.cor !== undefined ? { cor: dados.cor } : {}),
+        ...(dados.ativa !== undefined ? { ativa: dados.ativa } : {}),
+        // `null` explícito remove o limite; campo ausente não mexe nele
+        // (ADR-11) — o `!== undefined` aqui é o que preserva essa distinção.
+        ...(dados.limiteMensal !== undefined
+          ? { limite_mensal: dados.limiteMensal != null ? s(dados.limiteMensal) : null }
+          : {}),
+      }),
     }).then(paraCategoria),
   excluirCategoria: (id: string) => requisitar<void>(`/categorias/${id}`, { method: "DELETE" }),
 

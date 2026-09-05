@@ -11,8 +11,13 @@ export function useUsuario() {
 export function useAtualizarUsuario() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dados: Partial<{ nome: string; alertasEmailAtivo: boolean }>) =>
-      api.atualizarEu(dados),
+    mutationFn: (
+      dados: Partial<{
+        nome: string;
+        alertasEmailAtivo: boolean;
+        mostrarOrcamentoCategoria: boolean;
+      }>,
+    ) => api.atualizarEu(dados),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["usuario"] }),
   });
 }

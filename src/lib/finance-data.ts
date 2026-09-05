@@ -35,6 +35,8 @@ export interface Categoria {
   nome: string;
   cor: string;
   ativa: boolean;
+  /** Quanto se pretende gastar por mês (ADR-11) — ausente = sem orçamento. */
+  limiteMensal?: number;
 }
 
 export interface Conta {
@@ -174,19 +176,3 @@ export const ROTULO_FORMA_PAGAMENTO: Record<FormaPagamento, string> = {
   pix: "Pix",
   dinheiro: "Dinheiro",
 };
-
-// ---------------------------------------------------------------------------
-// Orçamento por categoria — o backend não tem endpoint para isso (ver ADR
-// 0007 do backend), então a tela de Metas continua usando este dado de
-// exemplo. A meta de poupança (o antigo `goals`) já é real — ver ADR-06 e
-// `components/finance/MetaPoupancaSection.tsx`.
-// ---------------------------------------------------------------------------
-
-export const budgets = [
-  { category: "Moradia", limit: 2600 },
-  { category: "Alimentação", limit: 1200 },
-  { category: "Transporte", limit: 600 },
-  { category: "Lazer", limit: 700 },
-  { category: "Saúde", limit: 600 },
-  { category: "Assinaturas", limit: 200 },
-];

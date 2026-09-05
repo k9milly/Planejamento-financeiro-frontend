@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import type { Categoria } from "@/lib/finance-data";
 
 export function useCategorias() {
   return useQuery({
@@ -13,7 +12,8 @@ export function useCategorias() {
 export function useCriarCategoria() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ nome, cor }: { nome: string; cor?: string }) => api.criarCategoria(nome, cor),
+    mutationFn: (dados: { nome: string; cor?: string; limiteMensal?: number }) =>
+      api.criarCategoria(dados),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["categorias"] }),
   });
 }
@@ -21,8 +21,13 @@ export function useCriarCategoria() {
 export function useAtualizarCategoria() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, dados }: { id: string; dados: Partial<Omit<Categoria, "id">> }) =>
-      api.atualizarCategoria(id, dados),
+    mutationFn: ({
+      id,
+      dados,
+    }: {
+      id: string;
+      dados: Partial<{ nome: string; cor: string; ativa: boolean; limiteMensal: number | null }>;
+    }) => api.atualizarCategoria(id, dados),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["categorias"] }),
   });
 }

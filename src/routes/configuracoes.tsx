@@ -504,10 +504,10 @@ function PagarFaturaDialog({
 // Categorias
 // ---------------------------------------------------------------------------
 
-type CategoriaForm = { nome: string; cor: string; ativa: boolean };
+type CategoriaForm = { nome: string; cor: string; ativa: boolean; limiteMensal: string };
 
 function emptyCategoriaForm(): CategoriaForm {
-  return { nome: "", cor: "#8b5cf6", ativa: true };
+  return { nome: "", cor: "#8b5cf6", ativa: true, limiteMensal: "" };
 }
 
 function CategoriasSection() {
@@ -528,7 +528,12 @@ function CategoriasSection() {
 
   function openEdit(categoria: Categoria) {
     setEditing(categoria);
-    setForm({ nome: categoria.nome, cor: categoria.cor, ativa: categoria.ativa });
+    setForm({
+      nome: categoria.nome,
+      cor: categoria.cor,
+      ativa: categoria.ativa,
+      limiteMensal: categoria.limiteMensal ? String(categoria.limiteMensal) : "",
+    });
     setOpen(true);
   }
 
@@ -537,9 +542,17 @@ function CategoriasSection() {
       toast.error("Informe o nome da categoria.");
       return;
     }
+    const limiteMensal = form.limiteMensal ? Number(form.limiteMensal.replace(",", ".")) : null;
     const mutacao = editing
-      ? atualizar.mutateAsync({ id: editing.id, dados: form })
-      : criar.mutateAsync(form);
+      ? atualizar.mutateAsync({
+          id: editing.id,
+          dados: { nome: form.nome.trim(), cor: form.cor, ativa: form.ativa, limiteMensal },
+        })
+      : criar.mutateAsync({
+          nome: form.nome.trim(),
+          cor: form.cor,
+          ...(limiteMensal ? { limiteMensal } : {}),
+        });
     mutacao
       .then(() => {
         toast.success(editing ? "Categoria atualizada." : "Categoria criada.");
@@ -589,6 +602,11 @@ function CategoriasSection() {
             >
               {categoria.nome}
             </span>
+            {categoria.limiteMensal && (
+              <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted-foreground">
+                {formatBRL(categoria.limiteMensal)}/mês
+              </span>
+            )}
             <Switch
               checked={categoria.ativa}
               onCheckedChange={(ativa) => mudarAtiva(categoria, ativa)}
@@ -640,6 +658,20 @@ function CategoriasSection() {
                 onChange={(e) => setForm({ ...form, cor: e.target.value })}
                 className="h-9 w-full p-1"
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="cat-limite">Limite mensal (opcional)</Label>
+              <Input
+                id="cat-limite"
+                inputMode="decimal"
+                placeholder="Sem orçamento definido"
+                value={form.limiteMensal}
+                onChange={(e) => setForm({ ...form, limiteMensal: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Quanto você pretende gastar por mês nesta categoria — aparece em Metas & Orçamentos.
+                Deixe em branco pra não acompanhar orçamento aqui.
+              </p>
             </div>
             <label className="flex items-center justify-between text-sm">
               Ativa
